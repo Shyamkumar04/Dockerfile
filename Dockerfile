@@ -3,11 +3,11 @@ FROM ubuntu:latest
 # Install required packages
 RUN apt update && apt install -y nginx curl wget unzip
 
-# Detect system architecture
+# Detect system architecture and download the correct FileBrowser binary
 RUN ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "amd64" ]; then FILEBROWSER_ARCH="linux-amd64"; \
     elif [ "$ARCH" = "arm64" ]; then FILEBROWSER_ARCH="linux-arm64"; \
-    elif [ "$ARCH" = "armhf" ]; then FILEBROWSER_ARCH="linux-armv7"; \
+    elif [ "$ARCH" = "armhf" ]; then FILEBROWSER_ARCH="linux-armv6"; \
     else echo "Unsupported architecture: $ARCH" && exit 1; fi && \
     wget -O /tmp/filebrowser.tar.gz $(curl -s https://api.github.com/repos/filebrowser/filebrowser/releases/latest \
     | grep "browser_download_url.*$FILEBROWSER_ARCH.tar.gz" | cut -d '"' -f 4) && \
