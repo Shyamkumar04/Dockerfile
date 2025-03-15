@@ -1,13 +1,13 @@
 FROM ubuntu:latest
 
 # Install required packages
-RUN apt update && apt install -y nginx curl unzip
+RUN apt update && apt install -y nginx curl wget unzip
 
 # Get the latest FileBrowser release dynamically
 RUN curl -s https://api.github.com/repos/filebrowser/filebrowser/releases/latest \
     | grep "browser_download_url.*linux-amd64-filebrowser" \
     | cut -d '"' -f 4 \
-    | wget -qi - -O /usr/local/bin/filebrowser \
+    | xargs wget -O /usr/local/bin/filebrowser \
     && chmod +x /usr/local/bin/filebrowser
 
 # Create directories for website and file storage
