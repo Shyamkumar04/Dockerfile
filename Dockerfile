@@ -1,10 +1,13 @@
-FROM alpine:latest
+FROM ubuntu:latest
 
-# Install required packages (NGINX, curl)
-RUN apk add --no-cache nginx curl
+# Install required packages
+RUN apt update && apt install -y nginx curl unzip
 
-# Download and install FileBrowser manually
-RUN curl -fsSL https://github.com/filebrowser/filebrowser/releases/latest/download/linux-amd64-filebrowser -o /usr/local/bin/filebrowser \
+# Get the latest FileBrowser release dynamically
+RUN curl -s https://api.github.com/repos/filebrowser/filebrowser/releases/latest \
+    | grep "browser_download_url.*linux-amd64-filebrowser" \
+    | cut -d '"' -f 4 \
+    | wget -qi - -O /usr/local/bin/filebrowser \
     && chmod +x /usr/local/bin/filebrowser
 
 # Create directories for website and file storage
@@ -21,16 +24,12 @@ RUN echo 'server {\n\
         proxy_set_header X-Real-IP $remote_addr;\n\
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
     }\n\
-}' > /etc/nginx/conf.d/default.conf
+}' > /etc/nginx/sites-available/default
 
-# Set permissions for FileBrowser
-RUN adduser -D -g 'filebrowser' filebrowser && \
-    chown -R filebrowser:filebrowser /srv/files
-
-# Expose the required ports
+# Expose port 80
 EXPOSE 80
 
-# Copy default index.html (replace with your own)
+# Copy default index.html
 RUN echo '<!DOCTYPE html>\n<html>\n<head><title>My Website</title></head>\n<body><h1>Welcome to My Website</h1></body>\n</html>' > /srv/website/index.html
 
 # Start NGINX and FileBrowser
