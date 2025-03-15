@@ -1,19 +1,33 @@
-FROM ubuntu:latest
+FROM alpine:latest
 
-# Set noninteractive mode to avoid prompts during installation
-ENV DEBIAN_FRONTEND=noninteractive
+# Install required packages
+RUN apk add --no-cache filebrowser nginx
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Create directories for website and file storage
+RUN mkdir -p /srv/website /srv/files /var/www/html
 
-# Download and install EasyPanel
-RUN curl -sSL https://get.easypanel.io | sh
+# Set up NGINX configuration
+RUN echo 'server {\n\
+    listen 80;\n\
+    root /srv/website;\n\
+    index index.html;\n\
+    location /files/ {\n\
+        proxy_pass http://localhost:8080/;\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
+    }\n\
+}' > /etc/nginx/conf.d/default.conf
 
-# Expose EasyPanel default port (adjust if needed)
-EXPOSE 3000
+# Set permissions for filebrowser
+RUN adduser -D -g 'filebrowser' filebrowser && \
+    chown -R filebrowser:filebrowser /srv/files
 
-# Start EasyPanel
-CMD ["/usr/bin/easypanel"]
+# Expose the required ports
+EXPOSE 80
+
+# Copy default index.html (replace with your own)
+RUN echo '<!DOCTYPE html>\n<html>\n<head><title>My Website</title></head>\n<body><h1>Welcome to My Website</h1></body>\n</html>' > /srv/website/index.html
+
+# Start NGINX and FileBrowser
+CMD nginx && filebrowser --port 8080 --root /srv/files
