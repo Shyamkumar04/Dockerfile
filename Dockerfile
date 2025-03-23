@@ -1,44 +1,43 @@
-FROM ubuntu:latest
+FROM ubuntu:24.04
 
-# Install required packages
-RUN apt update && apt install -y nginx curl unzip jq
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Detect system architecture and set correct FileBrowser binary name
-RUN ARCH=$(dpkg --print-architecture) && \
-    case "$ARCH" in \
-        amd64) FILEBROWSER_ARCH="linux-amd64" ;; \
-        arm64) FILEBROWSER_ARCH="linux-arm64" ;; \
-        armhf) FILEBROWSER_ARCH="linux-armv6" ;; \
-        *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
-    esac && \
-    FILEBROWSER_URL=$(curl -s https://api.github.com/repos/filebrowser/filebrowser/releases/latest \
-    | jq -r '.assets[] | select(.name | endswith("'"$FILEBROWSER_ARCH"'.tar.gz")) | .browser_download_url') && \
-    if [ -z "$FILEBROWSER_URL" ]; then echo "Failed to find the correct FileBrowser binary"; exit 1; fi && \
-    curl -L "$FILEBROWSER_URL" -o /tmp/filebrowser.tar.gz && \
-    tar -xzf /tmp/filebrowser.tar.gz -C /usr/local/bin filebrowser && \
-    chmod +x /usr/local/bin/filebrowser
+# Install dependencies
+RUN apt update && apt install -y \
+    curl \
+    gnupg \
+    git \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create directories for website and file storage
-RUN mkdir -p /srv/website /srv/files /var/www/html
+# Add NodeSource repository and install Node.js
+RUN mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt update \
+    && apt install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set up NGINX configuration
-RUN echo 'server {\n\
-    listen 80;\n\
-    root /srv/website;\n\
-    index index.html;\n\
-    location /files/ {\n\
-        proxy_pass http://localhost:8080/;\n\
-        proxy_set_header Host $host;\n\
-        proxy_set_header X-Real-IP $remote_addr;\n\
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n\
-    }\n\
-}' > /etc/nginx/sites-available/default
+# Set working directory
+WORKDIR /etc
 
-# Expose port 80
-EXPOSE 80
+# Clone Skyport Panel repository
+RUN git clone --branch v0.2.2 https://github.com/skyportlabs/panel skyport
 
-# Copy default index.html
-RUN echo '<!DOCTYPE html>\n<html>\n<head><title>My Website</title></head>\n<body><h1>Welcome to My Website</h1></body>\n</html>' > /srv/website/index.html
+# Set working directory to Skyport
+WORKDIR /etc/skyport
 
-# Start NGINX and FileBrowser
-CMD nginx && /usr/local/bin/filebrowser --port 8080 --root /srv/files
+# Install dependencies
+RUN npm install
+
+# Seed database and create admin user
+RUN npm run seed \
+    && npm run createUser
+
+# Expose port 3001
+EXPOSE 3001
+
+# Start the application
+CMD ["node", "."]
