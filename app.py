@@ -22,7 +22,7 @@ def ping_loop():
             print(f"[INFO] Ping #{count} - Status Code: {response.status_code}")
         except Exception as e:
             print(f"[ERROR] {e}")
-        time.sleep(20)  # Delay between requests
+        time.sleep(5)  # Delay between requests
 
 if __name__ == "__main__":
     # Start ping loop in background thread
